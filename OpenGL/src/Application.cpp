@@ -6,26 +6,10 @@
 #include <string>
 #include <sstream>
 
-#define ASSERT(x) if (!(x)) __debugbreak() //断言宏定义
-#define GLCall(x) GLClearError();\
-	x;\
-	ASSERT(GLLogCall(#x, __FILE__, __LINE__)) //OpenGL调用宏定义
+#include "Renderer.h"
 
-static void GLClearError() //清除OpenGL错误
-{
-	while (glGetError() != GL_NO_ERROR); //循环清除错误
-}
-
-static bool GLLogCall(const char* function, const char* file, int line) //检查OpenGL错误
-{
-	while (GLenum error = glGetError()) //循环获取错误
-	{
-		std::cout << "[OpenGL Error] (" << error << "): " << function
-			<< " " << file << ":" << line << std::endl; //输出错误信息
-		return false; //返回false表示有错误
-	}
-	return true; //返回true表示没有错误
-}
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 
 struct ShaderProgramSource
 {
@@ -126,68 +110,72 @@ int main(void)
 		std::cout << "Error!" << std::endl;
 
 	std::cout << glGetString(GL_VERSION) << std::endl; //输出OpenGL版本
+	{
+		float positions[] = { //顶点位置数据
+			-0.5f, -0.5f,
+			 0.5f, -0.5f,
+			 0.5f,  0.5f,
+			-0.5f,  0.5f
+		};
 
-    float positions[] = { //顶点位置数据
-        -0.5f, -0.5f,
-         0.5f, -0.5f,
-		 0.5f,  0.5f,
-		-0.5f,  0.5f
-    };
+		unsigned int indices[] = { //索引数据
+			0, 1, 2,
+			2, 3, 0
+		};
 
-	unsigned int indices[] = { //索引数据
-		0, 1, 2,
-		2, 3, 0
-	};
+		unsigned int vao; //顶点数组对象标识
+		GLCall(glGenVertexArrays(1, &vao)); //生成顶点数组对象
+		GLCall(glBindVertexArray(vao)); //绑定顶点数组对象
 
-	unsigned int buffer; //缓冲区标识
-	glGenBuffers(1, &buffer); //生成缓冲区对象
-	glBindBuffer(GL_ARRAY_BUFFER, buffer); //绑定缓冲区对象
-	glBufferData(GL_ARRAY_BUFFER, 6 * 2 * sizeof(float), positions, GL_STATIC_DRAW); //将数据复制到缓冲区对象中
-	// 指定缓冲区的内存布局
-    glEnableVertexAttribArray(0); //启用通用顶点属性数组
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0); //定义通用顶点属性数据
+		VertexBuffer vb(positions, 4 * 2 * sizeof(float)); //创建顶点缓冲区对象
 
-	unsigned int ibo; //索引缓冲区标识
-	glGenBuffers(1, &ibo); //生成索引缓冲区对象
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo); //绑定索引缓冲区对象
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(unsigned int), indices, GL_STATIC_DRAW); //将索引数据复制到索引缓冲区对象中
+		// 指定顶点属性布局
+		GLCall(glEnableVertexAttribArray(0)); //启用顶点属性数组(属性索引layout(location = 0))
+		GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0)); //定义顶点属性数据(属性索引0))与顶点缓冲区的关系(绑定)
 
-	ShaderProgramSource source = ParseShader("res/shaders/Basic.shader"); //解析着色器源代码
-	unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource); //创建着色器程序
-	glUseProgram(shader); //使用着色器程序
+		IndexBuffer ib(indices, 6); //创建索引缓冲区对象
 
-	int location = glGetUniformLocation(shader, "u_Color"); //获取统一变量位置
-	ASSERT(location != -1); //检查统一变量位置是否有效
-	glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f); //设置统一变量值
+		ShaderProgramSource source = ParseShader("res/Shaders/Basic.shader"); //解析着色器源代码
+		unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource); //创建着色器程序
+		GLCall(glUseProgram(shader)); //使用着色器程序
 
-	float r = 0.0f; //红色分量
-	float increment = 0.05f; //增量
+		GLCall(int location = glGetUniformLocation(shader, "u_Color")); //获取统一变量位置
+		ASSERT(location != -1); //检查统一变量位置是否有效
+		GLCall(glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f)); //设置统一变量值
 
-    /* Loop until the user closes the window */
-    while (!glfwWindowShouldClose(window)) //渲染循环
-    {
-        /* Render here */
-		glClear(GL_COLOR_BUFFER_BIT); //清除颜色缓冲区
+		float r = 0.0f; //红色分量
+		float increment = 0.05f; //增量
 
-		glUniform4f(location, r, 0.3f, 0.8f, 1.0f); //设置统一变量值
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr); //绘制图形
-		//glDrawArrays(GL_TRIANGLES, 0, 3); //绘制图形
+		/* Loop until the user closes the window */
+		while (!glfwWindowShouldClose(window)) //渲染循环
+		{
+			/* Render here */
+			GLCall(glClear(GL_COLOR_BUFFER_BIT)); //清除颜色缓冲区
 
-		if (r > 1.0f) //如果红色分量大于1.0
-			increment = -0.05f; //设置增量为负
-		else if (r < 0.0f) //如果红色分量小于0.0
-			increment = 0.05f; //设置增量为正
-		r += increment; //更新红色分量
+			GLCall(glUseProgram(shader)); //使用着色器程序
+			GLCall(glUniform4f(location, r, 0.3f, 0.8f, 1.0f)); //设置统一变量值
 
-        /* Swap front and back buffers */
-		glfwSwapBuffers(window); //交换前后缓冲区
+			GLCall(glBindVertexArray(vao)); //绑定顶点数组对象
+			ib.Bind(); //绑定索引缓冲区
 
-        /* Poll for and process events */
-		glfwPollEvents(); //处理事件
-    }
+			GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr)); //绘制图形
+			//glDrawArrays(GL_TRIANGLES, 0, 3); //绘制图形
 
-	glDeleteProgram(shader); //删除着色器程序
+			if (r > 1.0f) //如果红色分量大于1.0
+				increment = -0.05f; //设置增量为负
+			else if (r < 0.0f) //如果红色分量小于0.0
+				increment = 0.05f; //设置增量为正
+			r += increment; //更新红色分量
 
+			/* Swap front and back buffers */
+			glfwSwapBuffers(window); //交换前后缓冲区
+
+			/* Poll for and process events */
+			glfwPollEvents(); //处理事件
+		}
+
+		glDeleteProgram(shader); //删除着色器程序
+	}
 	glfwTerminate(); //终止GLFW
     return 0;
 }
