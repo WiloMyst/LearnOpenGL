@@ -93,8 +93,12 @@ int main(void)
 	if (!glfwInit()) //初始化GLFW
         return -1;
 
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //设置OpenGL版本
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //设置OpenGL核心模式
+
     /* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL); //创建窗口
+	window = glfwCreateWindow(640, 480, "LearnOpenGL", NULL, NULL); //创建窗口
     if (!window)
     {
 		glfwTerminate(); //如果创建窗口失败，终止GLFW
@@ -102,14 +106,17 @@ int main(void)
     }
 
     /* Make the window's context current */
-	glfwMakeContextCurrent(window); //设置当前上下文
+	glfwMakeContextCurrent(window); //将当前窗口上下文设置为当前线程的主上下文
 
 	glfwSwapInterval(1); //设置交换间隔为1，开启垂直同步
 
 	if (glewInit() != GLEW_OK) //检查GLEW是否初始化成功（需要在上下文创建后）
 		std::cout << "Error!" << std::endl;
 
+	//glViewport(0, 0, 640, 480);
+
 	std::cout << glGetString(GL_VERSION) << std::endl; //输出OpenGL版本
+
 	{
 		float positions[] = { //顶点位置数据
 			-0.5f, -0.5f,
@@ -130,8 +137,8 @@ int main(void)
 		VertexBuffer vb(positions, 4 * 2 * sizeof(float)); //创建顶点缓冲区对象
 
 		// 指定顶点属性布局
-		GLCall(glEnableVertexAttribArray(0)); //启用顶点属性数组(属性索引layout(location = 0))
-		GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0)); //定义顶点属性数据(属性索引0))与顶点缓冲区的关系(绑定)
+		GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)0)); //设置顶点属性指针。定义顶点属性数据(位置值0))与顶点缓冲区的关系(绑定)
+		GLCall(glEnableVertexAttribArray(0)); //启用顶点属性数组(位置值(location = 0))
 
 		IndexBuffer ib(indices, 6); //创建索引缓冲区对象
 
@@ -146,11 +153,14 @@ int main(void)
 		float r = 0.0f; //红色分量
 		float increment = 0.05f; //增量
 
+		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window)) //渲染循环
 		{
 			/* Render here */
-			GLCall(glClear(GL_COLOR_BUFFER_BIT)); //清除颜色缓冲区
+			//GLCall(glClearColor(0.0f, 0.0f, 0.0f, 1.0f)); //设置清除颜色
+			GLCall(glClear(GL_COLOR_BUFFER_BIT)); //清除颜色缓冲
 
 			GLCall(glUseProgram(shader)); //使用着色器程序
 			GLCall(glUniform4f(location, r, 0.3f, 0.8f, 1.0f)); //设置统一变量值
@@ -175,7 +185,8 @@ int main(void)
 		}
 
 		glDeleteProgram(shader); //删除着色器程序
-	}
+	}//防止释放资源时GLCall死循环
+
 	glfwTerminate(); //终止GLFW
     return 0;
 }
